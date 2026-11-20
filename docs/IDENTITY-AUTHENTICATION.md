@@ -25,7 +25,7 @@ The initial Director role is assigned server-side. Clients cannot select or assi
 
 ## Authentication endpoints
 
-- POST /api/v1/auth/login
+- POST /api/v1/auth/login (requires device key, device name and platform)
 - POST /api/v1/auth/refresh
 - GET /api/v1/auth/me (Bearer access token)
 
