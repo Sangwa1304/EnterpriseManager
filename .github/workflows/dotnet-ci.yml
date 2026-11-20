@@ -39,7 +39,7 @@ jobs:
 
       - name: Run tests
         run: |
-          adapter_dir="$(find "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1" -type f -name 'xunit.runner.visualstudio.testadapter.dll' -printf '%h\\n' | head -n 1)"
+          adapter_dir="$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1/build/net8.0"
           if [ -z "$adapter_dir" ]; then
             echo "xUnit VSTest adapter DLL was not found in the restored NuGet package."
             find "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1" -maxdepth 4 -type f
