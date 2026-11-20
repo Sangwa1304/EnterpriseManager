@@ -73,9 +73,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
 
                 var deviceIdValue = principal?.FindFirst("device_id")?.Value;
-                if (!Guid.TryParse(deviceIdValue, out var deviceId))
+                var sessionIdValue = principal?.FindFirst("session_id")?.Value;
+                if (!Guid.TryParse(deviceIdValue, out var deviceId) ||
+                    !Guid.TryParse(sessionIdValue, out var sessionId))
                 {
-                    context.Fail("The access token is not bound to a registered device.");
+                    context.Fail("The access token is not bound to an active device session.");
                     return;
                 }
 
@@ -85,11 +87,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 var user = await userManager.FindByIdAsync(userId.ToString());
                 var device = await db.Devices.SingleOrDefaultAsync(
                     x => x.Id == deviceId && x.UserId == userId, context.HttpContext.RequestAborted);
+                var now = DateTimeOffset.UtcNow;
+                var sessionIsActive = await db.RefreshTokens.AnyAsync(
+                    x => x.Id == sessionId && x.UserId == userId && x.DeviceId == deviceId &&
+                         x.RevokedAtUtc == null && x.ExpiresAtUtc > now,
+                    context.HttpContext.RequestAborted);
+
                 if (user is null || !user.IsActive || device is null || device.Status != DeviceStatus.Active ||
+                    !sessionIsActive ||
                     !await AuthEndpoints.HasActiveMembershipAndLicenseAsync(
                         db, userId, context.HttpContext.RequestAborted))
                 {
-                    context.Fail("The account, membership or license is inactive.");
+                    context.Fail("The account, device, session, membership or license is inactive.");
                     return;
                 }
 

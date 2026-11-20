@@ -21,13 +21,14 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
     {
         var now = DateTimeOffset.UtcNow;
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-        db.RefreshTokens.Add(new RefreshTokenRecord
+        var session = new RefreshTokenRecord
         {
             UserId = user.Id, DeviceId = deviceId, TokenHash = Hash(raw), CreatedAtUtc = now,
             ExpiresAtUtc = now.AddDays(_options.RefreshTokenDays), CreatedByIp = NormalizeIp(ip)
-        });
+        };
+        db.RefreshTokens.Add(session);
         await db.SaveChangesAsync(ct);
-        return new TokenPair(await CreateAccessTokenAsync(user, deviceId, now), _options.AccessTokenMinutes * 60, raw);
+        return new TokenPair(await CreateAccessTokenAsync(user, deviceId, session.Id, now), _options.AccessTokenMinutes * 60, raw);
     }
 
     public async Task<TokenPair?> RefreshAsync(string raw, string? ip, CancellationToken ct)
@@ -48,23 +49,25 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         record.RevokedByIp = NormalizeIp(ip);
         record.ReplacedByTokenHash = Hash(replacement);
         record.ConcurrencyStamp = Guid.NewGuid().ToString("N");
-        db.RefreshTokens.Add(new RefreshTokenRecord
+        var replacementSession = new RefreshTokenRecord
         {
             UserId = user.Id, DeviceId = device.Id, TokenHash = Hash(replacement), CreatedAtUtc = now,
             ExpiresAtUtc = now.AddDays(_options.RefreshTokenDays), CreatedByIp = NormalizeIp(ip)
-        });
+        };
+        db.RefreshTokens.Add(replacementSession);
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return null; }
 
-        return new TokenPair(await CreateAccessTokenAsync(user, device.Id, now), _options.AccessTokenMinutes * 60, replacement);
+        return new TokenPair(await CreateAccessTokenAsync(user, device.Id, replacementSession.Id, now), _options.AccessTokenMinutes * 60, replacement);
     }
 
-    private async Task<string> CreateAccessTokenAsync(ApplicationUser user, Guid deviceId, DateTimeOffset now)
+    private async Task<string> CreateAccessTokenAsync(ApplicationUser user, Guid deviceId, Guid sessionId, DateTimeOffset now)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new("device_id", deviceId.ToString()),
+            new("session_id", sessionId.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.DisplayName),
