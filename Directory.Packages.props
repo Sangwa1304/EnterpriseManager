@@ -19,5 +19,7 @@
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.10" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.10" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.10" />
+    <PackageVersion Include="Avalonia.Android" Version="11.3.10" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.0" />
   </ItemGroup>
 </Project>
