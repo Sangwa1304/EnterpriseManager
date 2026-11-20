@@ -14,6 +14,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnterpriseManager.Shared", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnterpriseManager.Client.Core", "src\EnterpriseManager.Client.Core\EnterpriseManager.Client.Core.csproj", "{A0000006-0000-4000-8000-000000000006}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnterpriseManager.Client.Avalonia", "src\EnterpriseManager.Client.Avalonia\EnterpriseManager.Client.Avalonia.csproj", "{A0000007-0000-4000-8000-000000000007}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnterpriseManager.Domain.Tests", "tests\EnterpriseManager.Domain.Tests\EnterpriseManager.Domain.Tests.csproj", "{A0000008-0000-4000-8000-000000000008}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnterpriseManager.Application.Tests", "tests\EnterpriseManager.Application.Tests\EnterpriseManager.Application.Tests.csproj", "{A0000009-0000-4000-8000-000000000009}"
+EndProject
 Global
   GlobalSection(SolutionConfigurationPlatforms) = preSolution
     Debug|Any CPU = Debug|Any CPU
