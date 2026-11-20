@@ -10,6 +10,10 @@ Les appareils Windows et Android ne contiennent aucune base métier locale et n�
 
 Toute lecture et écriture passent par les cas d’utilisation applicatifs côté serveur et par l’API. Le client ne reçoit que les données nécessaires à ses écrans et à ses opérations autorisées.
 
+## Contrat du schéma initial
+
+Le détail des tables Identity et applicatives, des index, des relations et des points de vigilance de la première migration est décrit dans [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md). Ce document est un contrat de revue, pas une migration exécutée.
+
 ## Domaines de données prévus
 
 - entreprise et paramètres ;
