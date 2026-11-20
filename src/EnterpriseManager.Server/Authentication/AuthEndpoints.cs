@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using EnterpriseManager.Domain.Companies;
+using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Domain.Licensing;
 using EnterpriseManager.Domain.Memberships;
 using EnterpriseManager.Infrastructure.Identity;
@@ -27,17 +28,51 @@ public static class AuthEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> LoginAsync(LoginRequest request, SignInManager<ApplicationUser> signIn,
-        UserManager<ApplicationUser> users, CompanyDbContext db, TokenService tokens, HttpContext http, CancellationToken ct)
+    private static async Task<IResult> LoginAsync(LoginRequest request, IConfiguration configuration,
+        SignInManager<ApplicationUser> signIn, UserManager<ApplicationUser> users,
+        CompanyDbContext db, TokenService tokens, HttpContext http, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-            return Results.ValidationProblem(new Dictionary<string, string[]> { ["credentials"] = ["Email and password are required."] });
+        if (string.IsNullOrWhiteSpace(request.Email) || request.Email.Length > 254 ||
+            string.IsNullOrWhiteSpace(request.Password) || request.Password.Length > 256 ||
+            request.DeviceKey == Guid.Empty || string.IsNullOrWhiteSpace(request.DeviceName) ||
+            request.DeviceName.Length > 100 ||
+            !Enum.TryParse<DevicePlatform>(request.Platform, true, out var platform) ||
+            !Enum.IsDefined(platform))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["credentials"] = ["Email, password and valid device details are required."]
+            });
         var user = await users.FindByEmailAsync(request.Email.Trim());
         if (user is null || !user.IsActive) return Results.Unauthorized();
         if (!await HasActiveMembershipAndLicenseAsync(db, user.Id, ct)) return Results.Unauthorized();
         var check = await signIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (!check.Succeeded) return Results.Unauthorized();
-        return Results.Ok(await tokens.CreateAsync(user, http.Connection.RemoteIpAddress?.ToString(), ct));
+
+        var device = await db.Devices.SingleOrDefaultAsync(
+            x => x.UserId == user.Id && x.DeviceKey == request.DeviceKey, ct);
+        if (device is not null && device.Status != DeviceStatus.Active)
+            return Results.Unauthorized();
+
+        if (device is null)
+        {
+            var configuredLimit = configuration.GetValue<int?>("Devices:MaxPerUser") ?? 5;
+            var deviceLimit = Math.Clamp(configuredLimit, 1, 20);
+            var activeDeviceCount = await db.Devices.CountAsync(
+                x => x.UserId == user.Id && x.Status == DeviceStatus.Active, ct);
+            if (activeDeviceCount >= deviceLimit)
+                return Results.Conflict(new { message = "The device limit for this account has been reached." });
+
+            device = new RegisteredDevice(user.Id, request.DeviceKey, request.DeviceName, platform);
+            db.Devices.Add(device);
+        }
+        else
+        {
+            device.Touch(request.DeviceName);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(await tokens.CreateAsync(
+            user, device.Id, http.Connection.RemoteIpAddress?.ToString(), ct));
     }
 
     private static async Task<IResult> RefreshAsync(RefreshRequest request, TokenService tokens, HttpContext http, CancellationToken ct)
@@ -117,7 +152,7 @@ public static class AuthEndpoints
         return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
     }
 }
-public sealed record LoginRequest(string Email, string Password);
+public sealed record LoginRequest(string Email, string Password, Guid DeviceKey, string DeviceName, string Platform);
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record SetupCompanyRequest(string LegalName, string BusinessIdentifier, string TimeZone,
     string DirectorEmail, string DirectorName, string DirectorPassword);
