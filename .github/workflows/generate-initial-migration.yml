@@ -1,6 +1,7 @@
 name: Generate initial EF Core migration
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - implementation/refresh-token-reuse-detection
@@ -25,6 +26,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.100
+
+      - name: Restore NuGet dependencies
+        run: dotnet restore src/EnterpriseManager.Server/EnterpriseManager.Server.csproj
 
       - name: Install EF Core command-line tools
         run: dotnet tool install --global dotnet-ef --version 10.0.0
