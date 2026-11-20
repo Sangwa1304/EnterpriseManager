@@ -44,6 +44,7 @@ jobs:
           --startup-project src/EnterpriseManager.Server/EnterpriseManager.Server.csproj
           --context CompanyDbContext
           --output-dir Persistence/Migrations
+          --verbose
 
       - name: Commit generated migration artifacts
         shell: bash
