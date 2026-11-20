@@ -139,6 +139,7 @@ app.MapHealthChecks("/health/ready");
 app.MapAuthenticationEndpoints();
 app.MapMembershipEndpoints();
 app.MapDeviceEndpoints();
+app.MapSessionEndpoints();
 
 app.Run();
 
