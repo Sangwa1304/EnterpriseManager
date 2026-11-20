@@ -76,6 +76,13 @@ jobs:
           EOF
           dotnet test /tmp/xunit-smoke/Smoke.csproj --configuration Release --logger "console;verbosity=normal"
 
+      - name: Inspect test adapter configuration
+        run: |
+          dotnet msbuild tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj -getProperty:NuGetPackageRoot
+          dotnet msbuild tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj -getProperty:Pkgxunit_runner_visualstudio
+          dotnet msbuild tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj -getProperty:VSTestTestAdapterPath
+          dotnet list tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj package
+
       - name: Run domain tests
         run: |
           dotnet test tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj \
