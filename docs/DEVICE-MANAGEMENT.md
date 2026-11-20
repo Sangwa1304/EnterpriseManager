@@ -35,7 +35,7 @@ Every refresh token is linked to a registered device. Access tokens carry the se
 - GET `/api/v1/sessions` (Director only) lists active sessions across the company.
 - POST `/api/v1/sessions/{sessionId}/revoke` (Director only) revokes one refresh-token session.
 
-A session revocation invalidates its refresh token immediately. An already-issued access token can remain usable until its short expiry (at most the configured 60 minutes), unless the entire device is revoked, which is checked on every authenticated request. Immediate per-session access-token invalidation requires binding access tokens to a server-side session identifier and checking that identifier on every request; that is a separate hardening step.
+Access tokens now carry the ID of the refresh-token record that issued them. Every authenticated request verifies that this exact session remains unrevoked and unexpired. Revoking a session or logging out therefore invalidates its already-issued access token on the next request, not merely its ability to refresh. Refresh-token rotation creates a new session ID and binds the newly issued access token to that replacement record.
 
 ## Limitations before production
 
