@@ -1,23 +1,38 @@
-# Gestion des appareils et sessions
+# Device management
 
-## Enregistrement
+## Device identity
 
-Chaque nouvel appareil doit être associé à un utilisateur et à une entreprise après authentification réussie. Conserver les informations techniques strictement nécessaires à l’identification et à la gestion de l’appareil.
+The native client generates a random installation identifier (GUID) once and sends it with login. The server binds the authenticated account to a registered device record. The identifier is an installation identifier, not hardware attestation; a determined user can reinstall or generate another identifier. The configured device limit is therefore an administrative control, not a cryptographic anti-cloning guarantee.
 
-## Contrôles
+Supported platform labels: Windows, Android and Other.
 
-À chaque session, vérifier :
-- que le compte est actif ;
-- que l’appartenance à l’entreprise est valide ;
-- que la licence est valide ;
-- que l’appareil n’a pas été révoqué ;
-- que la session n’a pas expiré ;
-- que les permissions couvrent l’opération demandée.
+## Login and device registration
 
-## Administration
+POST /api/v1/auth/login now requires:
+- Email
+- Password
+- DeviceKey (client-generated GUID)
+- DeviceName (maximum 100 characters)
+- Platform (Windows, Android or Other)
 
-Le Directeur peut consulter les appareils associés aux utilisateurs, révoquer un appareil perdu et définir une limite configurable d’appareils par utilisateur.
+The server checks credentials, account state, membership and license before registering a new device. The default limit is five active devices per user. Configure Devices:MaxPerUser (bounded to 1..20) on the server.
 
-## Absence de privilège local
+A revoked device cannot log in again with its old DeviceKey. The user must use a new installation identifier, and the Director can review the new registration.
 
-Le statut Directeur n’accorde aucun accès spécial au fichier SQLite ni aucune capacité hors ligne depuis un appareil secondaire.
+## Token binding
+
+Every refresh token is linked to a registered device. Access tokens carry the server-side device record ID. Every authenticated request checks that the user, membership, license and device are still active. This makes device revocation effective for existing access tokens, not only future logins.
+
+## Director controls
+
+- GET /api/v1/devices lists up to 500 devices and their account association.
+- POST /api/v1/devices/{deviceId}/revoke permanently revokes the device and all its active refresh tokens.
+
+## Limitations before production
+
+- The client must securely persist its random installation identifier using platform secure storage.
+- No hardware-backed device attestation is implemented.
+- No user-facing device inventory or session history UI is implemented.
+- A refresh-token session inventory and explicit per-session logout are still outstanding.
+- Device audit events and alerts for unusual enrollment are still outstanding.
+- Database migrations must add the Devices table and RefreshTokens.DeviceId before deployment.
