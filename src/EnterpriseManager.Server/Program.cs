@@ -9,6 +9,7 @@ using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Server.Authentication;
 using EnterpriseManager.Server.Memberships;
+using EnterpriseManager.Server.Devices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -137,6 +138,7 @@ app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 app.MapAuthenticationEndpoints();
 app.MapMembershipEndpoints();
+app.MapDeviceEndpoints();
 
 app.Run();
 
