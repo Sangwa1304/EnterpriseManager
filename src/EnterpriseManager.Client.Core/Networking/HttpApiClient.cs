@@ -9,7 +9,7 @@ public sealed class HttpApiClient(HttpClient httpClient) : IApiClient
 
     public async Task<TResponse> GetAsync<TResponse>(
         string relativeUri,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) where TResponse : notnull
     {
         ValidateRelativeUri(relativeUri);
 
