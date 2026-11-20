@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
     <OutputType>Exe</OutputType>
+    <ApplicationId>com.enterprisemanager.client</ApplicationId>
     <Nullable>enable</Nullable>
     <ApplicationManifest Condition="'$(TargetFramework)' == 'net10.0'">app.manifest</ApplicationManifest>
     <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net10.0-android'">23.0</SupportedOSPlatformVersion>
