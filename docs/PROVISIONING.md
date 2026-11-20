@@ -33,6 +33,6 @@ Cette protection ne remplace pas le futur système de sauvegarde automatique, ch
 
 ## État de livraison
 
-La factory EF Core et l'outil de migration avec aperçu, sauvegarde pré-migration et contrôle d'intégrité sont présents. La migration initiale complète n'est pas encore générée et l'étape de création interactive du Directeur reste à implémenter. L'outil refuse explicitement de toucher à la base tant qu'aucune migration n'est disponible.
+La factory EF Core et l'outil de migration avec aperçu, sauvegarde pré-migration et contrôle d'intégrité sont présents. L'endpoint serveur de bootstrap du Directeur existe, mais le parcours graphique de création d'entreprise dans le client Avalonia reste à implémenter. La migration initiale complète n'est pas encore générée ; l'outil refuse explicitement de toucher à la base tant qu'aucune migration n'est disponible.
 
 Aucune compilation, exécution, migration de base de données ou test d'exécution n'a été lancé pendant cette étape.
