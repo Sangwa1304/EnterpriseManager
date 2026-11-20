@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Infrastructure.Persistence;
+using EnterpriseManager.Server.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManager.Server.Devices;
@@ -38,6 +39,8 @@ public static class DeviceEndpoints
         Guid deviceId,
         ClaimsPrincipal principal,
         CompanyDbContext db,
+        AuditLogService audit,
+        HttpContext http,
         CancellationToken ct)
     {
         var directorIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -62,6 +65,9 @@ public static class DeviceEndpoints
             token.ConcurrencyStamp = Guid.NewGuid().ToString("N");
         }
 
+        audit.Record(directorId, "device.revoke", "device", deviceId.ToString(),
+            http.Connection.RemoteIpAddress?.ToString(),
+            $"Revoked device for user {device.UserId}; {activeTokens.Count} refresh-token session(s) invalidated.");
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Results.NoContent();

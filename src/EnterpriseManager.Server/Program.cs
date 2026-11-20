@@ -10,6 +10,7 @@ using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Server.Authentication;
 using EnterpriseManager.Server.Memberships;
 using EnterpriseManager.Server.Devices;
+using EnterpriseManager.Server.Audit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.Configure<TokenOptions>(builder.Configuration.GetSection(TokenOptions.SectionName));
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<AuditLogService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -149,6 +151,7 @@ app.MapAuthenticationEndpoints();
 app.MapMembershipEndpoints();
 app.MapDeviceEndpoints();
 app.MapSessionEndpoints();
+app.MapAuditEndpoints();
 
 app.Run();
 

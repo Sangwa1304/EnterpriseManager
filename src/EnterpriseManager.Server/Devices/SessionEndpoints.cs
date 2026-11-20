@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using EnterpriseManager.Infrastructure.Persistence;
+using EnterpriseManager.Server.Audit;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManager.Server.Devices;
@@ -20,10 +21,11 @@ public static class SessionEndpoints
         ClaimsPrincipal principal, CompanyDbContext db, CancellationToken ct)
     {
         if (!TryGetUserId(principal, out var userId)) return Results.Unauthorized();
+        var now = DateTimeOffset.UtcNow;
         var sessions = await (
             from token in db.RefreshTokens
             join device in db.Devices on token.DeviceId equals device.Id
-            where token.UserId == userId && token.RevokedAtUtc == null && token.ExpiresAtUtc > DateTimeOffset.UtcNow
+            where token.UserId == userId && token.RevokedAtUtc == null && token.ExpiresAtUtc > now
             orderby token.CreatedAtUtc descending
             select new SessionListItem(
                 token.Id, token.UserId, device.Id, device.DisplayName, device.Platform.ToString(),
@@ -52,7 +54,8 @@ public static class SessionEndpoints
     }
 
     private static async Task<IResult> LogoutCurrentDeviceAsync(
-        ClaimsPrincipal principal, CompanyDbContext db, HttpContext http, CancellationToken ct)
+        ClaimsPrincipal principal, CompanyDbContext db, AuditLogService audit,
+        HttpContext http, CancellationToken ct)
     {
         if (!TryGetUserId(principal, out var userId) ||
             !Guid.TryParse(principal.FindFirstValue("device_id"), out var deviceId))
@@ -71,15 +74,17 @@ public static class SessionEndpoints
             token.RevokedByIp = string.IsNullOrWhiteSpace(ip) ? "self-logout" : ip[..Math.Min(ip.Length, 64)];
             token.ConcurrencyStamp = Guid.NewGuid().ToString("N");
         }
+        audit.Record(userId, "session.logout", "device", deviceId.ToString(), ip,
+            $"Revoked {activeTokens.Count} active refresh-token session(s) on the current device.");
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
     }
 
     private static async Task<IResult> RevokeSessionAsync(
         Guid sessionId, ClaimsPrincipal principal, CompanyDbContext db,
-        HttpContext http, CancellationToken ct)
+        AuditLogService audit, HttpContext http, CancellationToken ct)
     {
-        if (!TryGetUserId(principal, out _)) return Results.Unauthorized();
+        if (!TryGetUserId(principal, out var directorId)) return Results.Unauthorized();
         var token = await db.RefreshTokens.SingleOrDefaultAsync(x => x.Id == sessionId, ct);
         if (token is null) return Results.NotFound();
         if (token.RevokedAtUtc is not null) return Results.NoContent();
@@ -88,6 +93,8 @@ public static class SessionEndpoints
         var ip = http.Connection.RemoteIpAddress?.ToString();
         token.RevokedByIp = string.IsNullOrWhiteSpace(ip) ? "director-session-revocation" : ip[..Math.Min(ip.Length, 64)];
         token.ConcurrencyStamp = Guid.NewGuid().ToString("N");
+        audit.Record(directorId, "session.revoke", "session", sessionId.ToString(), ip,
+            $"Revoked session for user {token.UserId} on device {token.DeviceId}.");
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
     }
