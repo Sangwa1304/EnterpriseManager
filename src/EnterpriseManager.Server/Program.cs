@@ -6,8 +6,10 @@ using EnterpriseManager.Application;
 using EnterpriseManager.Infrastructure;
 using EnterpriseManager.Infrastructure.Persistence;
 using EnterpriseManager.Infrastructure.Identity;
+using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Server.Authentication;
 using EnterpriseManager.Server.Memberships;
+using EnterpriseManager.Server.Devices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -70,11 +72,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return;
                 }
 
+                var deviceIdValue = principal?.FindFirst("device_id")?.Value;
+                if (!Guid.TryParse(deviceIdValue, out var deviceId))
+                {
+                    context.Fail("The access token is not bound to a registered device.");
+                    return;
+                }
+
                 var services = context.HttpContext.RequestServices;
                 var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
                 var db = services.GetRequiredService<CompanyDbContext>();
                 var user = await userManager.FindByIdAsync(userId.ToString());
-                if (user is null || !user.IsActive ||
+                var device = await db.Devices.SingleOrDefaultAsync(
+                    x => x.Id == deviceId && x.UserId == userId, context.HttpContext.RequestAborted);
+                if (user is null || !user.IsActive || device is null || device.Status != DeviceStatus.Active ||
                     !await AuthEndpoints.HasActiveMembershipAndLicenseAsync(
                         db, userId, context.HttpContext.RequestAborted))
                 {
@@ -127,6 +138,7 @@ app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 app.MapAuthenticationEndpoints();
 app.MapMembershipEndpoints();
+app.MapDeviceEndpoints();
 
 app.Run();
 

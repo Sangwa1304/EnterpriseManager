@@ -3,6 +3,7 @@ public sealed class RefreshTokenRecord
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
+    public Guid DeviceId { get; set; }
     public string TokenHash { get; set; } = string.Empty;
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;

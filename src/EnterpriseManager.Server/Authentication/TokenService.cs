@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using EnterpriseManager.Infrastructure.Identity;
+using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -16,17 +17,17 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
     private readonly TokenOptions _options = options.Value;
     private readonly SigningCredentials _credentials = CreateCredentials(options.Value);
 
-    public async Task<TokenPair> CreateAsync(ApplicationUser user, string? ip, CancellationToken ct)
+    public async Task<TokenPair> CreateAsync(ApplicationUser user, Guid deviceId, string? ip, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         db.RefreshTokens.Add(new RefreshTokenRecord
         {
-            UserId = user.Id, TokenHash = Hash(raw), CreatedAtUtc = now,
+            UserId = user.Id, DeviceId = deviceId, TokenHash = Hash(raw), CreatedAtUtc = now,
             ExpiresAtUtc = now.AddDays(_options.RefreshTokenDays), CreatedByIp = NormalizeIp(ip)
         });
         await db.SaveChangesAsync(ct);
-        return new TokenPair(await CreateAccessTokenAsync(user, now), _options.AccessTokenMinutes * 60, raw);
+        return new TokenPair(await CreateAccessTokenAsync(user, deviceId, now), _options.AccessTokenMinutes * 60, raw);
     }
 
     public async Task<TokenPair?> RefreshAsync(string raw, string? ip, CancellationToken ct)
@@ -37,8 +38,10 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         var now = DateTimeOffset.UtcNow;
         if (record.RevokedAtUtc is not null || record.ExpiresAtUtc <= now) return null;
         var user = await users.FindByIdAsync(record.UserId.ToString());
-        if (user is null || !user.IsActive ||
+        var device = await db.Devices.SingleOrDefaultAsync(x => x.Id == record.DeviceId, ct);
+        if (user is null || !user.IsActive || device is null || device.Status != DeviceStatus.Active ||
             !await AuthEndpoints.HasActiveMembershipAndLicenseAsync(db, user.Id, ct)) return null;
+        device.Touch(device.DisplayName);
 
         var replacement = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         record.RevokedAtUtc = now;
@@ -47,20 +50,21 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         record.ConcurrencyStamp = Guid.NewGuid().ToString("N");
         db.RefreshTokens.Add(new RefreshTokenRecord
         {
-            UserId = user.Id, TokenHash = Hash(replacement), CreatedAtUtc = now,
+            UserId = user.Id, DeviceId = device.Id, TokenHash = Hash(replacement), CreatedAtUtc = now,
             ExpiresAtUtc = now.AddDays(_options.RefreshTokenDays), CreatedByIp = NormalizeIp(ip)
         });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return null; }
 
-        return new TokenPair(await CreateAccessTokenAsync(user, now), _options.AccessTokenMinutes * 60, replacement);
+        return new TokenPair(await CreateAccessTokenAsync(user, device.Id, now), _options.AccessTokenMinutes * 60, replacement);
     }
 
-    private async Task<string> CreateAccessTokenAsync(ApplicationUser user, DateTimeOffset now)
+    private async Task<string> CreateAccessTokenAsync(ApplicationUser user, Guid deviceId, DateTimeOffset now)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new("device_id", deviceId.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.DisplayName),
