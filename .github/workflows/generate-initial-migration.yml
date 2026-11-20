@@ -43,6 +43,7 @@ jobs:
       - name: Generate initial model migration and snapshot
         env:
           NuGetAudit: false
+          ENTERPRISEMANAGER_DB_CONNECTION: "Data Source=/tmp/enterprise-manager-design-time.db"
         run: >
           dotnet ef migrations add InitialCompanySchema
           --project src/EnterpriseManager.Infrastructure/EnterpriseManager.Infrastructure.csproj
