@@ -100,20 +100,15 @@ public static class MembershipEndpoints
         UserManager<ApplicationUser> users,
         CancellationToken ct)
     {
-        var requests = await db.MembershipRequests
-            .Where(x => x.Status == MembershipRequestStatus.Pending)
-            .OrderBy(x => x.RequestedAtUtc)
-            .ToListAsync(ct);
-
-        var results = new List<PendingMembershipRequest>();
-        foreach (var request in requests)
-        {
-            var user = await users.FindByIdAsync(request.UserId.ToString());
-            if (user is null) continue;
-            results.Add(new PendingMembershipRequest(
+        var results = await (
+            from request in db.MembershipRequests
+            join user in db.Users on request.UserId equals user.Id
+            where request.Status == MembershipRequestStatus.Pending
+            orderby request.RequestedAtUtc
+            select new PendingMembershipRequest(
                 request.Id, user.Id, user.Email ?? string.Empty,
-                user.DisplayName, request.RequestedAtUtc));
-        }
+                user.DisplayName, request.RequestedAtUtc))
+            .ToListAsync(ct);
 
         return Results.Ok(results);
     }
@@ -238,6 +233,8 @@ public static class MembershipEndpoints
         var user = await users.FindByIdAsync(userId.ToString());
         if (membership is null || user is null) return Results.NotFound();
 
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, ct);
         membership.Suspend();
         user.IsActive = false;
         var result = await users.UpdateAsync(user);
@@ -245,6 +242,7 @@ public static class MembershipEndpoints
 
         await RevokeRefreshTokensAsync(db, userId, ct);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         return Results.NoContent();
     }
 
@@ -260,11 +258,14 @@ public static class MembershipEndpoints
         if (membership.Status == MembershipStatus.Revoked)
             return Results.Conflict(new { message = "A revoked membership cannot be reactivated." });
 
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, ct);
         membership.Reactivate();
         user.IsActive = true;
         var result = await users.UpdateAsync(user);
         if (!result.Succeeded) return Results.Problem("Could not reactivate the account.");
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         return Results.Ok(new { user.Id, membership.Status });
     }
 
@@ -282,6 +283,8 @@ public static class MembershipEndpoints
         var user = await users.FindByIdAsync(userId.ToString());
         if (membership is null || user is null) return Results.NotFound();
 
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, ct);
         membership.Revoke();
         user.IsActive = false;
         var result = await users.UpdateAsync(user);
@@ -292,6 +295,7 @@ public static class MembershipEndpoints
 
         await RevokeRefreshTokensAsync(db, userId, ct);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         return Results.NoContent();
     }
 
