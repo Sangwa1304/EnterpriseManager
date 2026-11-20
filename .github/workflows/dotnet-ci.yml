@@ -39,8 +39,15 @@ jobs:
 
       - name: Run tests
         run: |
+          adapter_dir="$(find "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1" -type f -name 'xunit.runner.visualstudio.testadapter.dll' -printf '%h\\n' | head -n 1)"
+          if [ -z "$adapter_dir" ]; then
+            echo "xUnit VSTest adapter DLL was not found in the restored NuGet package."
+            find "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1" -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "Using xUnit adapter from: $adapter_dir"
           dotnet test EnterpriseManager.sln --configuration Release --no-build --no-restore -p:TargetFrameworks=net10.0 \
-            --test-adapter-path "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1/build/net8.0" \
+            --test-adapter-path "$adapter_dir" \
             --logger "console;verbosity=normal" \
             --logger "trx;LogFileName=enterprise-manager-tests.trx"
           for result in tests/*/TestResults/enterprise-manager-tests.trx; do
