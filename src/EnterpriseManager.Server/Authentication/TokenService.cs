@@ -37,7 +37,8 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         var now = DateTimeOffset.UtcNow;
         if (record.RevokedAtUtc is not null || record.ExpiresAtUtc <= now) return null;
         var user = await users.FindByIdAsync(record.UserId.ToString());
-        if (user is null || !user.IsActive) return null;
+        if (user is null || !user.IsActive ||
+            !await AuthEndpoints.HasActiveMembershipAndLicenseAsync(db, user.Id, ct)) return null;
 
         var replacement = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         record.RevokedAtUtc = now;
