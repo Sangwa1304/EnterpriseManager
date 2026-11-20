@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <VSTestTestAdapterPath>$(Pkgxunit_runner_visualstudio)build/net8.0</VSTestTestAdapterPath>
+    <VSTestTestAdapterPath>$(NuGetPackageRoot)xunit.runner.visualstudio/3.1.5/build/net8.0</VSTestTestAdapterPath>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
