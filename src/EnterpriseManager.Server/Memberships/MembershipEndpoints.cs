@@ -97,20 +97,18 @@ public static class MembershipEndpoints
 
     private static async Task<IResult> GetPendingRequestsAsync(
         CompanyDbContext db,
-        UserManager<ApplicationUser> users,
         CancellationToken ct)
     {
         var results = await (
             from request in db.MembershipRequests
             join user in db.Users on request.UserId equals user.Id
             where request.Status == MembershipRequestStatus.Pending
-            orderby request.RequestedAtUtc
             select new PendingMembershipRequest(
                 request.Id, user.Id, user.Email ?? string.Empty,
                 user.DisplayName, request.RequestedAtUtc))
             .ToListAsync(ct);
 
-        return Results.Ok(results);
+        return Results.Ok(results.OrderBy(x => x.RequestedAtUtc));
     }
 
     private static async Task<IResult> ApproveRequestAsync(
