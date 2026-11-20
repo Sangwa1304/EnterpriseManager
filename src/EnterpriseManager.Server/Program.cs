@@ -25,8 +25,9 @@ builder.Host.UseSerilog((context, configuration) =>
         .WriteTo.Console());
 
 var connectionString = builder.Configuration.GetConnectionString("CompanyDatabase")
+    ?? Environment.GetEnvironmentVariable("ENTERPRISEMANAGER_DB_CONNECTION")
     ?? throw new InvalidOperationException(
-        "ConnectionStrings:CompanyDatabase must be configured for this company server.");
+        "Configure ConnectionStrings:CompanyDatabase or ENTERPRISEMANAGER_DB_CONNECTION for this company server.");
 
 var tokenOptions = builder.Configuration.GetSection(TokenOptions.SectionName).Get<TokenOptions>()
     ?? throw new InvalidOperationException("Authentication:Tokens configuration is required.");
