@@ -52,15 +52,17 @@ public static class AuthEndpoints
         var supplied = http.Request.Headers["X-Enterprise-Setup-Key"].ToString();
         if (!FixedEquals(expected, supplied)) return Results.Unauthorized();
 
-        if (string.IsNullOrWhiteSpace(request.LegalName) || string.IsNullOrWhiteSpace(request.BusinessIdentifier) ||
-            string.IsNullOrWhiteSpace(request.TimeZone) || string.IsNullOrWhiteSpace(request.DirectorEmail) ||
-            string.IsNullOrWhiteSpace(request.DirectorName) || string.IsNullOrWhiteSpace(request.DirectorPassword))
+        if (string.IsNullOrWhiteSpace(request.LegalName) || request.LegalName.Length > 200 ||
+            string.IsNullOrWhiteSpace(request.BusinessIdentifier) || request.BusinessIdentifier.Length > 80 ||
+            string.IsNullOrWhiteSpace(request.TimeZone) || request.TimeZone.Length > 100 ||
+            string.IsNullOrWhiteSpace(request.DirectorEmail) || request.DirectorEmail.Length > 254 ||
+            string.IsNullOrWhiteSpace(request.DirectorName) || request.DirectorName.Length > 160 ||
+            string.IsNullOrWhiteSpace(request.DirectorPassword) || request.DirectorPassword.Length > 256)
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["setup"] = ["All company and Director fields are required."] });
 
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         if (await db.Companies.AnyAsync(ct) || await users.Users.AnyAsync(ct))
             return Results.Conflict(new { message = "Company setup has already been completed." });
-
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var role = await roles.FindByNameAsync("Director");
         if (role is null)
         {
