@@ -52,8 +52,13 @@ jobs:
         run: |
           dotnet test tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj \
             --configuration Release --no-build --no-restore \
+            --diag /tmp/domain-vstest.log \
             --logger "console;verbosity=normal" \
             --logger "trx;LogFileName=domain-tests.trx"
+          echo "Test host diagnostics:"
+          grep -iE 'xunit|adapter|failed|error|exception|load' /tmp/domain-vstest.host.*.log /tmp/domain-vstest.log | tail -n 120 || true
+          echo "Compiled test symbols:"
+          strings -el tests/EnterpriseManager.Domain.Tests/bin/Release/net10.0/EnterpriseManager.Domain.Tests.dll | grep -E 'CompanyTests|Constructor_Normalizes|FactAttribute' | head -n 30 || true
           if ! grep -Eq '<Counters[^>]*total="[1-9][0-9]*"' tests/EnterpriseManager.Domain.Tests/TestResults/domain-tests.trx; then
             echo "No domain tests were discovered."
             exit 1
