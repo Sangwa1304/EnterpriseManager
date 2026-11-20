@@ -2,6 +2,7 @@ using EnterpriseManager.Domain.Companies;
 using EnterpriseManager.Domain.Licensing;
 using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Domain.Memberships;
+using EnterpriseManager.Domain.Audit;
 using EnterpriseManager.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -18,6 +19,7 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
     public DbSet<MembershipRequest> MembershipRequests => Set<MembershipRequest>();
     public DbSet<UserLicense> UserLicenses => Set<UserLicense>();
     public DbSet<RegisteredDevice> Devices => Set<RegisteredDevice>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +101,19 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
             entity.Property(x => x.RevokedByIp).HasMaxLength(64);
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<RegisteredDevice>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuditEvent>(entity =>
+        {
+            entity.ToTable("AuditEvents");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Action).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.TargetType).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.TargetId).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.IpAddress).HasMaxLength(64);
+            entity.Property(x => x.Details).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.OccurredAtUtc, x.Id });
+            entity.HasIndex(x => x.ActorUserId);
         });
     }
 }
