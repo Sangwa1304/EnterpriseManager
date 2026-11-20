@@ -40,6 +40,7 @@ The initial Director receives a lifetime OWNER license. Other accounts need a cu
 ## Membership lifecycle
 
 Director-only operations:
+- POST /api/v1/membership/users/{userId}/role (change the assigned role)
 - POST /api/v1/membership/users/{userId}/suspend
 - POST /api/v1/membership/users/{userId}/reactivate
 - POST /api/v1/membership/users/{userId}/revoke
