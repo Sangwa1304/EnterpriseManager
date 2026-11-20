@@ -38,7 +38,17 @@ jobs:
         run: dotnet build EnterpriseManager.sln --configuration Release --no-restore -p:TargetFrameworks=net10.0
 
       - name: Run tests
-        run: dotnet test EnterpriseManager.sln --configuration Release --no-build --no-restore -p:TargetFrameworks=net10.0 --logger "trx;LogFileName=enterprise-manager-tests.trx"
+        run: |
+          dotnet test EnterpriseManager.sln --configuration Release --no-build --no-restore -p:TargetFrameworks=net10.0 \
+            --test-adapter-path "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1/build/net8.0" \
+            --logger "console;verbosity=normal" \
+            --logger "trx;LogFileName=enterprise-manager-tests.trx"
+          for result in tests/*/TestResults/enterprise-manager-tests.trx; do
+            if ! grep -Eq '<Counters[^>]*total="[1-9][0-9]*"' "$result"; then
+              echo "No tests were discovered in $result"
+              exit 1
+            fi
+          done
 
       - name: Upload test results
         if: always()
