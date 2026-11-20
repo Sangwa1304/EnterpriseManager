@@ -11,6 +11,7 @@ on:
       - src/EnterpriseManager.Application/EnterpriseManager.Application.csproj
       - src/EnterpriseManager.Infrastructure/EnterpriseManager.Infrastructure.csproj
       - src/EnterpriseManager.Server/Program.cs
+      - src/EnterpriseManager.Server/EnterpriseManager.Server.csproj
 
 permissions:
   contents: write
