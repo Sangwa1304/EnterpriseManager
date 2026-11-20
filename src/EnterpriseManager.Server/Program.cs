@@ -25,7 +25,9 @@ var tokenOptions = builder.Configuration.GetSection(TokenOptions.SectionName).Ge
 if (string.IsNullOrWhiteSpace(tokenOptions.SigningKey) ||
     Encoding.UTF8.GetByteCount(tokenOptions.SigningKey) < 32 ||
     string.IsNullOrWhiteSpace(tokenOptions.Issuer) ||
-    string.IsNullOrWhiteSpace(tokenOptions.Audience))
+    string.IsNullOrWhiteSpace(tokenOptions.Audience) ||
+    tokenOptions.AccessTokenMinutes is < 5 or > 60 ||
+    tokenOptions.RefreshTokenDays is < 1 or > 30)
     throw new InvalidOperationException(
         "Configure JWT SigningKey (32+ UTF-8 bytes), Issuer and Audience outside source control.");
 
@@ -77,6 +79,7 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
+app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
