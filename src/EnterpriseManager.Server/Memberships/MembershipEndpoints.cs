@@ -201,7 +201,7 @@ public static class MembershipEndpoints
 
         request.Reject(directorId.Value, input.Reason);
         audit.Record(directorId, "membership.reject", "membership-request", requestId.ToString(),
-            details: input.Reason);
+            details: input.Reason is null ? "Membership request rejected without a reason." : "Membership request rejected with a reason supplied.");
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { request.Id, request.Status, request.DecidedAtUtc });
     }
