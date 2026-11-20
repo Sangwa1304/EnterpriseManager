@@ -50,15 +50,16 @@ jobs:
 
       - name: Run domain tests
         run: |
-          dotnet test tests/EnterpriseManager.Domain.Tests/EnterpriseManager.Domain.Tests.csproj \
-            --configuration Release --no-build --no-restore \
-            --diag /tmp/domain-vstest.log \
-            --logger "console;verbosity=normal" \
-            --logger "trx;LogFileName=domain-tests.trx"
-          echo "Test host diagnostics:"
-          grep -iE 'xunit|adapter|failed|error|exception|load' /tmp/domain-vstest.host.*.log /tmp/domain-vstest.log | tail -n 120 || true
-          echo "Compiled test symbols:"
-          strings -el tests/EnterpriseManager.Domain.Tests/bin/Release/net10.0/EnterpriseManager.Domain.Tests.dll | grep -E 'CompanyTests|Constructor_Normalizes|FactAttribute' | head -n 30 || true
+          adapter_dir="$HOME/.nuget/packages/xunit.runner.visualstudio/3.1.5/build/net8.0"
+          test_dir="tests/EnterpriseManager.Domain.Tests/bin/Release/net10.0"
+          dotnet vstest "$test_dir/EnterpriseManager.Domain.Tests.dll" \
+            --TestAdapterPath:"$adapter_dir" \
+            --ResultsDirectory:"tests/EnterpriseManager.Domain.Tests/TestResults" \
+            --Diag:/tmp/domain-vstest.log \
+            --logger:"console;verbosity=normal" \
+            --logger:"trx;LogFileName=domain-tests.trx"
+          echo "VSTest host diagnostics:"
+          grep -iE 'xunit|adapter|failed|error|exception|load|discover' /tmp/domain-vstest.host.*.log /tmp/domain-vstest.log | tail -n 160 || true
           if ! grep -Eq '<Counters[^>]*total="[1-9][0-9]*"' tests/EnterpriseManager.Domain.Tests/TestResults/domain-tests.trx; then
             echo "No domain tests were discovered."
             exit 1
