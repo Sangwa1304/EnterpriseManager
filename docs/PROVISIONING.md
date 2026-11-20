@@ -7,7 +7,7 @@ Chaque entreprise possède un fichier SQLite central distinct, hébergé sur la 
 ## Étapes de provisioning
 
 1. Installer le serveur et l'outil `EnterpriseManager.Provisioning` sur l'hôte central.
-2. Choisir un emplacement protégé pour le fichier SQLite et définir `ENTERPRISEMANAGER_DB_CONNECTION` dans l'environnement du processus.
+2. Choisir un emplacement protégé pour le fichier SQLite et définir `ENTERPRISEMANAGER_DB_CONNECTION` dans l'environnement du processus du serveur et de l'outil de provisioning. Le serveur accepte également `ConnectionStrings__CompanyDatabase` via la configuration ASP.NET Core.
 3. Examiner les migrations en attente avec `EnterpriseManager.Provisioning --status`.
 4. Appliquer les migrations avec `EnterpriseManager.Provisioning --apply`.
 5. Créer l'entreprise et le compte Directeur dans une transaction atomique, avec les rôles initiaux et la licence OWNER.
