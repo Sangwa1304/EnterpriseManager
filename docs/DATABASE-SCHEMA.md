@@ -6,7 +6,7 @@ Une base SQLite correspond à une seule entreprise. Le cloisonnement entre entre
 
 Les clients Windows et Android n'ouvrent jamais cette base. Ils passent exclusivement par l'API du serveur de leur entreprise.
 
-Ce document décrit le modèle actuellement déclaré dans `CompanyDbContext` et les conventions Identity utilisées. Il sert de référence de revue avant la migration initiale ; il ne constitue pas une migration EF Core.
+Ce document décrit le modèle actuellement déclaré dans `CompanyDbContext` et les conventions Identity utilisées. Il sert de référence pour relire la migration initiale et le modèle EF Core ; il ne remplace pas les artefacts générés.
 
 ## Tables ASP.NET Core Identity
 
@@ -60,4 +60,6 @@ Les statuts et plateformes déclarés comme enums sont actuellement convertis en
 
 ## État
 
-Ce contrat est documentaire. Aucune migration initiale ni snapshot EF Core n'est déclarée comme livrée par ce changement. Leur génération fiable nécessite l'outillage EF Core et une compilation, qui restent volontairement non exécutés tant que l'autorisation explicite de lancer un build/outillage n'a pas été donnée.
+La migration initiale `20261120025147_InitialCompanySchema` et le snapshot `CompanyDbContextModelSnapshot` ont été générés avec EF Core 10.0.0 sur la branche d'implémentation. Le workflow GitHub Actions a terminé avec succès, y compris la compilation requise par l'outillage EF Core. La génération a utilisé une base SQLite temporaire ; aucune base d'entreprise n'a été créée ni modifiée.
+
+La migration et le snapshot doivent encore faire l'objet d'une revue statique complète avant toute application sur une base réelle. En particulier, les deux index uniques par `UserId` sur `CompanyMemberships` et `MembershipRequests` sont intentionnels dans le modèle actuel, mais leur adéquation avec les besoins d'historique des demandes doit être confirmée. Aucune migration n'a été appliquée à une base réelle.
