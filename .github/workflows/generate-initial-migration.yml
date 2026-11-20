@@ -1,0 +1,51 @@
+name: Generate initial EF Core migration
+
+on:
+  push:
+    branches:
+      - implementation/refresh-token-reuse-detection
+    paths:
+      - .github/workflows/generate-initial-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  generate-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: implementation/refresh-token-reuse-detection
+          persist-credentials: true
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.100
+
+      - name: Install EF Core command-line tools
+        run: dotnet tool install --global dotnet-ef --version 10.0.0
+
+      - name: Generate initial model migration and snapshot
+        run: >
+          dotnet ef migrations add InitialCompanySchema
+          --project src/EnterpriseManager.Infrastructure/EnterpriseManager.Infrastructure.csproj
+          --startup-project src/EnterpriseManager.Server/EnterpriseManager.Server.csproj
+          --context CompanyDbContext
+          --output-dir Persistence/Migrations
+
+      - name: Commit generated migration artifacts
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/EnterpriseManager.Infrastructure/Persistence/Migrations
+          if git diff --cached --quiet; then
+            echo "EF Core produced no migration artifacts."
+            exit 1
+          fi
+          git commit -m "db: add initial EF Core schema migration"
+          git push origin HEAD:implementation/refresh-token-reuse-detection
