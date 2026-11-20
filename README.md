@@ -34,6 +34,12 @@ Le serveur doit être démarré et joignable. L'accès distant doit passer par u
 
 Consulter [la structure détaillée](docs/PROJECT-STRUCTURE.md), [l'architecture](docs/ARCHITECTURE.md) et [la feuille de route](docs/ROADMAP.md).
 
+## Identité et authentification
+
+Le socle Identity est en cours d'implémentation : création initiale contrôlée du Directeur, authentification par JWT, renouvellement par jeton opaque rotatif et limitation des tentatives de connexion. La documentation est disponible dans [IDENTITY-AUTHENTICATION.md](docs/IDENTITY-AUTHENTICATION.md).
+
+Le schéma SQLite doit encore être initialisé par l'outil de provisioning et les migrations avant de pouvoir utiliser ces endpoints. L'adhésion, l'approbation par le Directeur, les permissions détaillées et la gestion des appareils restent à développer.
+
 ## État de validation
 
-Aucune compilation, aucun build et aucune exécution d'application n'ont été effectués. Les projets doivent encore recevoir les modules d'identité, d'adhésion, de licences, d'administration, les migrations, les flux métier et les tests d'intégration avant toute mise en production.
+Aucune compilation, aucun build, aucun test et aucune exécution d'application n'ont été effectués. Le dépôt reste en phase d'implémentation et ne doit pas encore être déployé en production.
