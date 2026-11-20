@@ -46,8 +46,10 @@ jobs:
           dotnet vstest "$test_dir/EnterpriseManager.Domain.Tests.dll" --TestAdapterPath:"$adapter_dir" --logger:"console;verbosity=normal" --ResultsDirectory:"tests/EnterpriseManager.Domain.Tests/TestResults" --Diag:/tmp/domain-vstest.log --logger:"trx;LogFileName=domain-tests.trx"
           test_dir="tests/EnterpriseManager.Application.Tests/bin/Release/net10.0"
           dotnet vstest "$test_dir/EnterpriseManager.Application.Tests.dll" --TestAdapterPath:"$adapter_dir" --logger:"console;verbosity=normal" --ResultsDirectory:"tests/EnterpriseManager.Application.Tests/TestResults" --Diag:/tmp/application-vstest.log --logger:"trx;LogFileName=application-tests.trx"
-          echo "xUnit adapter diagnostics:"
-          grep -iE 'xunit|adapter' /tmp/domain-vstest.log /tmp/application-vstest.log | tail -n 80 || true
+          echo "Compiled test symbols:"
+          strings tests/EnterpriseManager.Domain.Tests/bin/Release/net10.0/EnterpriseManager.Domain.Tests.dll | grep -E 'CompanyTests|Constructor_Normalizes|FactAttribute' | head -n 30 || true
+          echo "VSTest adapter diagnostics:"
+          grep -iE 'failed|error|exception|xunit|adapter|discover' /tmp/domain-vstest.log /tmp/application-vstest.log | tail -n 120 || true
           for result in tests/*/TestResults/*.trx; do
             if ! grep -Eq '<Counters[^>]*total="[1-9][0-9]*"' "$result"; then
               echo "No tests were discovered in $result"
