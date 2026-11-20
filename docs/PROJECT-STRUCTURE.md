@@ -34,4 +34,4 @@ Les endpoints métier ne doivent pas être exposés avant l'implémentation de l
 
 ## État d'implémentation
 
-Cette première tranche pose la solution, les projets Domain/Application/Infrastructure/Server/Shared/Client.Core, les entités initiales et la configuration EF Core. Elle ne constitue pas encore un produit déployable : l'authentification, les migrations, le provisioning des entreprises, les licences, les appareils, les clients Avalonia et les tests restent à implémenter.
+Cette première tranche pose la solution, les projets Domain/Application/Infrastructure/Server/Shared/Client.Core, le shell Avalonia Windows/Android, le client HTTP initial, les entités initiales, la configuration EF Core et les premiers tests du domaine. Elle ne constitue pas encore un produit déployable : l'authentification, les migrations, le provisioning des entreprises, les licences, les appareils, les parcours UI complets, les tests d'intégration et le packaging restent à implémenter.
