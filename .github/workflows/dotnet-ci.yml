@@ -28,6 +28,9 @@ jobs:
         with:
           dotnet-version: 10.0.100
 
+      - name: Pin SDK feature band for CI
+        run: printf '{ "sdk": { "version": "10.0.100", "rollForward": "disable" } }\\n' > global.json
+
       - name: Show SDK
         run: dotnet --info
 
