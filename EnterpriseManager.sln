@@ -32,5 +32,11 @@ Global
     {A0000005-0000-4000-8000-000000000005}.Release|Any CPU.ActiveCfg = Release|Any CPU
     {A0000006-0000-4000-8000-000000000006}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
     {A0000006-0000-4000-8000-000000000006}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {A0000007-0000-4000-8000-000000000007}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {A0000007-0000-4000-8000-000000000007}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {A0000008-0000-4000-8000-000000000008}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {A0000008-0000-4000-8000-000000000008}.Release|Any CPU.ActiveCfg = Release|Any CPU
+    {A0000009-0000-4000-8000-000000000009}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+    {A0000009-0000-4000-8000-000000000009}.Release|Any CPU.ActiveCfg = Release|Any CPU
   EndGlobalSection
 EndGlobal
