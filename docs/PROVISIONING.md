@@ -8,10 +8,19 @@ Chaque entreprise possède un fichier SQLite central distinct, hébergé sur la 
 
 1. Installer le serveur et l'outil `EnterpriseManager.Provisioning` sur l'hôte central.
 2. Choisir un emplacement protégé pour le fichier SQLite et définir `ENTERPRISEMANAGER_DB_CONNECTION` dans l'environnement du processus.
-3. Appliquer les migrations EF Core versionnées avec l'outil de provisioning.
-4. Créer l'entreprise et le compte Directeur dans une transaction atomique, avec les rôles initiaux et la licence OWNER.
-5. Générer et remettre au Directeur les paramètres de connexion sécurisés du serveur.
-6. Démarrer l'API et vérifier son état de santé avant d'autoriser les connexions clientes.
+3. Examiner les migrations en attente avec `EnterpriseManager.Provisioning --status`.
+4. Appliquer les migrations avec `EnterpriseManager.Provisioning --apply`.
+5. Créer l'entreprise et le compte Directeur dans une transaction atomique, avec les rôles initiaux et la licence OWNER.
+6. Générer et remettre au Directeur les paramètres de connexion sécurisés du serveur.
+7. Démarrer l'API et vérifier son état de santé avant d'autoriser les connexions clientes.
+
+## Migration et sauvegarde préventive
+
+L'outil exige une chaîne SQLite pointant vers un chemin absolu et un fichier, pas une base en mémoire. Sans argument ou avec `--status`, il ne fait qu'afficher les migrations en attente. Toute modification exige `--apply`.
+
+Avant de migrer un fichier existant non vide, l'outil produit une sauvegarde cohérente horodatée avec l'API SQLite Online Backup. Après migration, il exécute `PRAGMA integrity_check`. En cas d'échec, la sauvegarde pré-migration est conservée et son chemin est indiqué.
+
+Cette protection ne remplace pas le futur système de sauvegarde automatique, chiffrée, avec rétention et copie externe.
 
 ## Sécurité
 
@@ -24,6 +33,6 @@ Chaque entreprise possède un fichier SQLite central distinct, hébergé sur la 
 
 ## État de livraison
 
-La factory EF Core et le squelette de l'outil de provisioning sont présents. La migration initiale complète n'est pas encore générée et l'étape de création interactive du Directeur reste à implémenter. L'outil refuse explicitement de toucher à la base tant qu'aucune migration n'est disponible.
+La factory EF Core et l'outil de migration avec aperçu, sauvegarde pré-migration et contrôle d'intégrité sont présents. La migration initiale complète n'est pas encore générée et l'étape de création interactive du Directeur reste à implémenter. L'outil refuse explicitement de toucher à la base tant qu'aucune migration n'est disponible.
 
-Aucune compilation, exécution ou migration de base de données n'a été lancée pendant cette étape.
+Aucune compilation, exécution, migration de base de données ou test d'exécution n'a été lancé pendant cette étape.
