@@ -3,6 +3,7 @@ using EnterpriseManager.Domain.Licensing;
 using EnterpriseManager.Domain.Memberships;
 using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Infrastructure.Persistence;
+using EnterpriseManager.Server.Audit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -122,6 +123,7 @@ public static class MembershipEndpoints
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
         RoleManager<IdentityRole<Guid>> roles,
+        AuditLogService audit,
         CancellationToken ct)
     {
         if (!AssignableRoles.Contains(input.RoleName) ||
@@ -165,6 +167,8 @@ public static class MembershipEndpoints
         db.CompanyMemberships.Add(new CompanyMembership(user.Id, input.RoleName));
         db.UserLicenses.Add(new UserLicense(
             user.Id, input.LicensePlanCode, now, now.AddDays(input.LicenseDays)));
+        audit.Record(directorId, "membership.approve", "user", user.Id.ToString(),
+            details: $"Approved membership with role {input.RoleName} and plan {input.LicensePlanCode}.");
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -179,6 +183,7 @@ public static class MembershipEndpoints
         RejectMembershipInput input,
         ClaimsPrincipal principal,
         CompanyDbContext db,
+        AuditLogService audit,
         CancellationToken ct)
     {
         var directorId = GetUserId(principal);
@@ -195,6 +200,8 @@ public static class MembershipEndpoints
             return Results.Conflict(new { message = "This request has already been decided." });
 
         request.Reject(directorId.Value, input.Reason);
+        audit.Record(directorId, "membership.reject", "membership-request", requestId.ToString(),
+            details: input.Reason);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { request.Id, request.Status, request.DecidedAtUtc });
     }
@@ -202,10 +209,14 @@ public static class MembershipEndpoints
     private static async Task<IResult> ChangeRoleAsync(
         Guid userId,
         ChangeRoleInput input,
+        ClaimsPrincipal principal,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
         CancellationToken ct)
     {
+        var directorId = GetUserId(principal);
+        if (directorId is null) return Results.Unauthorized();
         if (!AssignableRoles.Contains(input.RoleName))
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -227,6 +238,8 @@ public static class MembershipEndpoints
         if (!add.Succeeded) return Results.Problem("Could not assign the requested role.");
 
         membership.ChangeRole(input.RoleName);
+        audit.Record(directorId, "membership.role-change", "user", userId.ToString(),
+            details: $"Assigned role {input.RoleName}.");
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Results.Ok(new { user.Id, Role = input.RoleName });
@@ -235,10 +248,14 @@ public static class MembershipEndpoints
     private static async Task<IResult> IssueLicenseAsync(
         Guid userId,
         IssueLicenseInput input,
+        ClaimsPrincipal principal,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
         CancellationToken ct)
     {
+        var directorId = GetUserId(principal);
+        if (directorId is null) return Results.Unauthorized();
         if (!LicensePlans.Contains(input.PlanCode) || input.DurationDays is < 1 or > 3650)
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
@@ -254,6 +271,8 @@ public static class MembershipEndpoints
         var now = DateTimeOffset.UtcNow;
         var license = new UserLicense(userId, input.PlanCode, now, now.AddDays(input.DurationDays));
         db.UserLicenses.Add(license);
+        audit.Record(directorId, "license.issue", "user", userId.ToString(),
+            details: $"Issued plan {input.PlanCode} for {input.DurationDays} days.");
         await db.SaveChangesAsync(ct);
         return Results.Created($"/api/v1/membership/users/{userId}/licenses",
             new { license.Id, license.PlanCode, license.StartsAtUtc, license.ExpiresAtUtc });
@@ -264,9 +283,12 @@ public static class MembershipEndpoints
         ClaimsPrincipal principal,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
         CancellationToken ct)
     {
-        if (GetUserId(principal) == userId)
+        var directorId = GetUserId(principal);
+        if (directorId is null) return Results.Unauthorized();
+        if (directorId == userId)
             return Results.Conflict(new { message = "The Director cannot suspend their own account here." });
 
         var membership = await db.CompanyMemberships.SingleOrDefaultAsync(x => x.UserId == userId, ct);
@@ -281,6 +303,7 @@ public static class MembershipEndpoints
         if (!result.Succeeded) return Results.Problem("Could not suspend the account.");
 
         await RevokeRefreshTokensAsync(db, userId, ct);
+        audit.Record(directorId, "membership.suspend", "user", userId.ToString());
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Results.NoContent();
@@ -288,10 +311,14 @@ public static class MembershipEndpoints
 
     private static async Task<IResult> ReactivateMembershipAsync(
         Guid userId,
+        ClaimsPrincipal principal,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
         CancellationToken ct)
     {
+        var directorId = GetUserId(principal);
+        if (directorId is null) return Results.Unauthorized();
         var membership = await db.CompanyMemberships.SingleOrDefaultAsync(x => x.UserId == userId, ct);
         var user = await users.FindByIdAsync(userId.ToString());
         if (membership is null || user is null) return Results.NotFound();
@@ -304,6 +331,7 @@ public static class MembershipEndpoints
         user.IsActive = true;
         var result = await users.UpdateAsync(user);
         if (!result.Succeeded) return Results.Problem("Could not reactivate the account.");
+        audit.Record(directorId, "membership.reactivate", "user", userId.ToString());
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Results.Ok(new { user.Id, membership.Status });
@@ -314,9 +342,12 @@ public static class MembershipEndpoints
         ClaimsPrincipal principal,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
         CancellationToken ct)
     {
-        if (GetUserId(principal) == userId)
+        var directorId = GetUserId(principal);
+        if (directorId is null) return Results.Unauthorized();
+        if (directorId == userId)
             return Results.Conflict(new { message = "The Director cannot revoke their own membership here." });
 
         var membership = await db.CompanyMemberships.SingleOrDefaultAsync(x => x.UserId == userId, ct);
@@ -334,6 +365,7 @@ public static class MembershipEndpoints
             if (license.Status == LicenseStatus.Active) license.Revoke();
 
         await RevokeRefreshTokensAsync(db, userId, ct);
+        audit.Record(directorId, "membership.revoke", "user", userId.ToString());
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return Results.NoContent();
