@@ -2,6 +2,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using EnterpriseManager.Domain.Companies;
+using EnterpriseManager.Domain.Licensing;
+using EnterpriseManager.Domain.Memberships;
 using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -26,12 +28,13 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> LoginAsync(LoginRequest request, SignInManager<ApplicationUser> signIn,
-        UserManager<ApplicationUser> users, TokenService tokens, HttpContext http, CancellationToken ct)
+        UserManager<ApplicationUser> users, CompanyDbContext db, TokenService tokens, HttpContext http, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return Results.ValidationProblem(new Dictionary<string, string[]> { ["credentials"] = ["Email and password are required."] });
         var user = await users.FindByEmailAsync(request.Email.Trim());
         if (user is null || !user.IsActive) return Results.Unauthorized();
+        if (!await HasActiveMembershipAndLicenseAsync(db, user.Id, ct)) return Results.Unauthorized();
         var check = await signIn.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (!check.Succeeded) return Results.Unauthorized();
         return Results.Ok(await tokens.CreateAsync(user, http.Connection.RemoteIpAddress?.ToString(), ct));
@@ -63,11 +66,15 @@ public static class AuthEndpoints
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         if (await db.Companies.AnyAsync(ct) || await users.Users.AnyAsync(ct))
             return Results.Conflict(new { message = "Company setup has already been completed." });
-        var role = await roles.FindByNameAsync("Director");
-        if (role is null)
+        foreach (var roleName in new[] { "Director", "Worker", "Manager", "Finance", "Construction", "Production" })
         {
-            var roleResult = await roles.CreateAsync(new IdentityRole<Guid> { Name = "Director", NormalizedName = "DIRECTOR" });
-            if (!roleResult.Succeeded) return Results.Problem("Could not initialize the Director role.");
+            if (await roles.FindByNameAsync(roleName) is not null) continue;
+            var roleResult = await roles.CreateAsync(new IdentityRole<Guid>
+            {
+                Name = roleName,
+                NormalizedName = roleName.ToUpperInvariant()
+            });
+            if (!roleResult.Succeeded) return Results.Problem("Could not initialize the default company roles.");
         }
 
         var director = new ApplicationUser
@@ -83,10 +90,24 @@ public static class AuthEndpoints
         if (!assigned.Succeeded) return Results.Problem("Could not assign the initial Director role.");
 
         var company = new Company(request.LegalName, request.BusinessIdentifier, request.TimeZone);
+        var now = DateTimeOffset.UtcNow;
         db.Companies.Add(company);
+        db.CompanyMemberships.Add(new CompanyMembership(director.Id, "Director"));
+        db.UserLicenses.Add(new UserLicense(director.Id, "OWNER", now, null, isLifetime: true));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return Results.Created("/api/v1/auth/setup/director", new CompanySetupResponse(company.Id, company.LegalName, director.Id));
+    }
+
+    internal static async Task<bool> HasActiveMembershipAndLicenseAsync(
+        CompanyDbContext db, Guid userId, CancellationToken ct)
+    {
+        var membership = await db.CompanyMemberships.SingleOrDefaultAsync(x => x.UserId == userId, ct);
+        if (membership is null || membership.Status != MembershipStatus.Active) return false;
+        var licenses = await db.UserLicenses
+            .Where(x => x.UserId == userId && x.Status == LicenseStatus.Active)
+            .ToListAsync(ct);
+        return licenses.Any(x => x.IsValidAt(DateTimeOffset.UtcNow));
     }
 
     private static bool FixedEquals(string expected, string supplied)
