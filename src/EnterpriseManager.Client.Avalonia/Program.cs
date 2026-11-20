@@ -2,6 +2,7 @@ using Avalonia;
 
 namespace EnterpriseManager.Client.Avalonia;
 
+#if !ANDROID
 internal static class Program
 {
     [STAThread]
@@ -14,3 +15,4 @@ internal static class Program
             .WithInterFont()
             .LogToTrace();
 }
+#endif
