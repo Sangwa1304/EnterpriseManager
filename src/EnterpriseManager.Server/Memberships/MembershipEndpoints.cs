@@ -34,6 +34,9 @@ public static class MembershipEndpoints
         group.MapPost("/users/{userId:guid}/licenses", IssueLicenseAsync)
             .RequireAuthorization("DirectorOnly");
 
+        group.MapPost("/users/{userId:guid}/role", ChangeRoleAsync)
+            .RequireAuthorization("DirectorOnly");
+
         group.MapPost("/users/{userId:guid}/suspend", SuspendMembershipAsync)
             .RequireAuthorization("DirectorOnly");
 
@@ -106,6 +109,7 @@ public static class MembershipEndpoints
             select new PendingMembershipRequest(
                 request.Id, user.Id, user.Email ?? string.Empty,
                 user.DisplayName, request.RequestedAtUtc))
+            .Take(200)
             .ToListAsync(ct);
 
         return Results.Ok(results.OrderBy(x => x.RequestedAtUtc));
@@ -179,6 +183,11 @@ public static class MembershipEndpoints
     {
         var directorId = GetUserId(principal);
         if (directorId is null) return Results.Unauthorized();
+        if (input.Reason?.Length > 500)
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["reason"] = ["The rejection reason cannot exceed 500 characters."]
+            });
 
         var request = await db.MembershipRequests.SingleOrDefaultAsync(x => x.Id == requestId, ct);
         if (request is null) return Results.NotFound();
@@ -188,6 +197,39 @@ public static class MembershipEndpoints
         request.Reject(directorId.Value, input.Reason);
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { request.Id, request.Status, request.DecidedAtUtc });
+    }
+
+    private static async Task<IResult> ChangeRoleAsync(
+        Guid userId,
+        ChangeRoleInput input,
+        CompanyDbContext db,
+        UserManager<ApplicationUser> users,
+        CancellationToken ct)
+    {
+        if (!AssignableRoles.Contains(input.RoleName))
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["role"] = ["The requested role is not assignable."]
+            });
+
+        var user = await users.FindByIdAsync(userId.ToString());
+        var membership = await db.CompanyMemberships.SingleOrDefaultAsync(x => x.UserId == userId, ct);
+        if (user is null || membership is null) return Results.NotFound();
+        if (membership.Status != MembershipStatus.Active)
+            return Results.Conflict(new { message = "Only active memberships can change role." });
+
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable, ct);
+        var currentRoles = await users.GetRolesAsync(user);
+        var remove = await users.RemoveFromRolesAsync(user, currentRoles);
+        if (!remove.Succeeded) return Results.Problem("Could not remove the previous role.");
+        var add = await users.AddToRoleAsync(user, input.RoleName);
+        if (!add.Succeeded) return Results.Problem("Could not assign the requested role.");
+
+        membership.ChangeRole(input.RoleName);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return Results.Ok(new { user.Id, Role = input.RoleName });
     }
 
     private static async Task<IResult> IssueLicenseAsync(
@@ -319,5 +361,6 @@ public sealed record JoinRequestInput(string Email, string DisplayName, string P
 public sealed record ApproveMembershipInput(string RoleName, string LicensePlanCode, int LicenseDays);
 public sealed record RejectMembershipInput(string? Reason);
 public sealed record IssueLicenseInput(string PlanCode, int DurationDays);
+public sealed record ChangeRoleInput(string RoleName);
 public sealed record PendingMembershipRequest(Guid RequestId, Guid UserId, string Email, string DisplayName, DateTimeOffset RequestedAtUtc);
 public sealed record MembershipDecisionResponse(Guid RequestId, Guid UserId, string RoleName, string LicensePlanCode, DateTimeOffset LicenseExpiresAtUtc);
