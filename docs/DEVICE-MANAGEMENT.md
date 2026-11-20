@@ -8,7 +8,7 @@ Supported platform labels: Windows, Android and Other.
 
 ## Login and device registration
 
-POST /api/v1/auth/login now requires:
+POST /api/v1/auth/login requires:
 - Email
 - Password
 - DeviceKey (client-generated GUID)
@@ -21,7 +21,7 @@ A revoked device cannot log in again with its old DeviceKey. The user must use a
 
 ## Token binding
 
-Every refresh token is linked to a registered device. Access tokens carry the server-side device record ID. Every authenticated request checks that the user, membership, license and device are still active. This makes device revocation effective for existing access tokens, not only future logins.
+Every refresh token is linked to a registered device. Access tokens carry the server-side device record ID. Every authenticated request checks that the user, membership, license and device are still active. This makes device revocation effective for existing access tokens, not only future logins. Refresh-token rotation preserves the device binding.
 
 ## Director controls
 
