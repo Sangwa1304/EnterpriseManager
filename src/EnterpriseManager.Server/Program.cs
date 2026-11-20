@@ -1,13 +1,18 @@
 using System.Text;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using System.Threading.RateLimiting;
 using EnterpriseManager.Application;
 using EnterpriseManager.Infrastructure;
 using EnterpriseManager.Infrastructure.Persistence;
+using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Server.Authentication;
 using EnterpriseManager.Server.Memberships;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,8 +55,42 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenOptions.SigningKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
-            NameClaimType = System.Security.Claims.ClaimTypes.Name,
-            RoleClaimType = System.Security.Claims.ClaimTypes.Role
+            NameClaimType = ClaimTypes.Name,
+            RoleClaimType = ClaimTypes.Role
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+                var userIdValue = principal?.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                if (!Guid.TryParse(userIdValue, out var userId))
+                {
+                    context.Fail("The access token does not identify a valid account.");
+                    return;
+                }
+
+                var services = context.HttpContext.RequestServices;
+                var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+                var db = services.GetRequiredService<CompanyDbContext>();
+                var user = await userManager.FindByIdAsync(userId.ToString());
+                if (user is null || !user.IsActive ||
+                    !await AuthEndpoints.HasActiveMembershipAndLicenseAsync(
+                        db, userId, context.HttpContext.RequestAborted))
+                {
+                    context.Fail("The account, membership or license is inactive.");
+                    return;
+                }
+
+                if (principal?.Identity is ClaimsIdentity identity)
+                {
+                    foreach (var existingRole in identity.FindAll(ClaimTypes.Role).ToArray())
+                        identity.RemoveClaim(existingRole);
+                    foreach (var role in await userManager.GetRolesAsync(user))
+                        identity.AddClaim(new Claim(ClaimTypes.Role, role));
+                }
+            }
         };
     });
 builder.Services.AddAuthorization(options =>
