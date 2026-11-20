@@ -14,7 +14,7 @@ var options = new DbContextOptionsBuilder<CompanyDbContext>()
     .Options;
 
 await using var db = new CompanyDbContext(options);
-var migrations = await db.Database.GetMigrationsAsync();
+var migrations = db.Database.GetMigrations();
 if (!migrations.Any())
 {
     Console.Error.WriteLine(
@@ -24,14 +24,14 @@ if (!migrations.Any())
     return 3;
 }
 
-var pending = await db.Database.GetPendingMigrationsAsync();
-if (!pending.Any())
+var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+if (pending.Length == 0)
 {
     Console.WriteLine("The company database schema is already up to date.");
     return 0;
 }
 
-Console.WriteLine($"Applying {pending.Count()} schema migration(s) to the configured central database...");
+Console.WriteLine($"Applying {pending.Length} schema migration(s) to the configured central database...");
 await db.Database.MigrateAsync();
 Console.WriteLine("Database schema migration completed.");
 return 0;
