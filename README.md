@@ -34,6 +34,12 @@ Le serveur doit être démarré et joignable. L'accès distant doit passer par u
 
 Consulter [la structure détaillée](docs/PROJECT-STRUCTURE.md), [l'architecture](docs/ARCHITECTURE.md) et [la feuille de route](docs/ROADMAP.md).
 
+## Identité et authentification
+
+Le socle Identity est en cours d'implémentation : création initiale contrôlée du Directeur, authentification par JWT, renouvellement par jeton opaque rotatif et limitation des tentatives de connexion. La documentation est disponible dans [IDENTITY-AUTHENTICATION.md](docs/IDENTITY-AUTHENTICATION.md).
+
+Le schéma SQLite doit encore être initialisé par l'outil de provisioning et les migrations avant de pouvoir utiliser ces endpoints. Les demandes d'adhésion, l'approbation par le Directeur, l'attribution initiale de rôles/licences et la suspension/révocation des membres sont maintenant présentes dans le socle API. Voir [MEMBERSHIP-LICENSING.md](docs/MEMBERSHIP-LICENSING.md). Le Directeur peut aussi changer le rôle, renouveler une licence, suspendre, réactiver ou révoquer un membre. La validation des JWT vérifie l'état actuel du compte, de l'adhésion et de la licence en base centrale. Le Directeur peut aussi gérer les appareils enregistrés et révoquer un appareil perdu. Les jetons de renouvellement sont liés à un appareil, et les requêtes authentifiées vérifient son état actuel. Voir [DEVICE-MANAGEMENT.md](docs/DEVICE-MANAGEMENT.md). Les jetons de renouvellement sont associés à un appareil enregistré. Le Directeur peut consulter les appareils et révoquer un appareil perdu, ce qui bloque aussi ses jetons d'accès actifs. Le client devra encore stocker son identifiant d'installation dans le stockage sécurisé Windows/Android. Voir [DEVICE-MANAGEMENT.md](docs/DEVICE-MANAGEMENT.md). Les permissions détaillées et l'interface complète restent à développer.
+
 ## État de validation
 
-Aucune compilation, aucun build et aucune exécution d'application n'ont été effectués. Les projets doivent encore recevoir les modules d'identité, d'adhésion, de licences, d'administration, les migrations, les flux métier et les tests d'intégration avant toute mise en production.
+Aucune compilation, aucun build, aucun test et aucune exécution d'application n'ont été effectués. Le dépôt reste en phase d'implémentation et ne doit pas encore être déployé en production.

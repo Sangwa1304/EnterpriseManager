@@ -1,16 +1,29 @@
 using EnterpriseManager.Domain.Companies;
-using EnterpriseManager.Domain.Users;
+using EnterpriseManager.Domain.Licensing;
+using EnterpriseManager.Domain.Devices;
+using EnterpriseManager.Domain.Memberships;
+using EnterpriseManager.Domain.Audit;
+using EnterpriseManager.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManager.Infrastructure.Persistence;
 
-public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options) : DbContext(options)
+public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<Company> Companies => Set<Company>();
-    public DbSet<UserAccount> Users => Set<UserAccount>();
+    public DbSet<RefreshTokenRecord> RefreshTokens => Set<RefreshTokenRecord>();
+    public DbSet<CompanyMembership> CompanyMemberships => Set<CompanyMembership>();
+    public DbSet<MembershipRequest> MembershipRequests => Set<MembershipRequest>();
+    public DbSet<UserLicense> UserLicenses => Set<UserLicense>();
+    public DbSet<RegisteredDevice> Devices => Set<RegisteredDevice>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<Company>(entity =>
         {
             entity.ToTable("Companies");
@@ -22,16 +35,85 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
             entity.Property(x => x.CreatedAtUtc).IsRequired();
         });
-
-        modelBuilder.Entity<UserAccount>(entity =>
+        modelBuilder.Entity<ApplicationUser>(entity =>
         {
-            entity.ToTable("Users");
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.Email).HasMaxLength(254).IsRequired();
-            entity.HasIndex(x => x.Email).IsUnique();
             entity.Property(x => x.DisplayName).HasMaxLength(160).IsRequired();
-            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
             entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.HasIndex(x => x.NormalizedEmail).IsUnique();
+        });
+
+        modelBuilder.Entity<CompanyMembership>(entity =>
+        {
+            entity.ToTable("CompanyMemberships");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.RoleName).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            entity.HasIndex(x => x.UserId).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MembershipRequest>(entity =>
+        {
+            entity.ToTable("MembershipRequests");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            entity.Property(x => x.RejectionReason).HasMaxLength(500);
+            entity.HasIndex(x => x.UserId).IsUnique();
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserLicense>(entity =>
+        {
+            entity.ToTable("UserLicenses");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.PlanCode).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            entity.HasIndex(x => new { x.UserId, x.Status });
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RegisteredDevice>(entity =>
+        {
+            entity.ToTable("Devices");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.DeviceKey).IsRequired();
+            entity.HasIndex(x => new { x.UserId, x.DeviceKey }).IsUnique();
+            entity.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Platform).HasConversion<string>().HasMaxLength(24);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RefreshTokenRecord>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.Property(x => x.ConcurrencyStamp).IsConcurrencyToken();
+            entity.HasIndex(x => new { x.UserId, x.ExpiresAtUtc });
+            entity.HasIndex(x => x.DeviceId);
+            entity.Property(x => x.CreatedByIp).HasMaxLength(64);
+            entity.Property(x => x.RevokedByIp).HasMaxLength(64);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<RegisteredDevice>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuditEvent>(entity =>
+        {
+            entity.ToTable("AuditEvents");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Action).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.TargetType).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.TargetId).HasMaxLength(120).IsRequired();
+            entity.Property(x => x.IpAddress).HasMaxLength(64);
+            entity.Property(x => x.Details).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.OccurredAtUtc, x.Id });
+            entity.HasIndex(x => x.ActorUserId);
         });
     }
 }
