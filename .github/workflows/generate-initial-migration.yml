@@ -7,6 +7,9 @@ on:
       - implementation/refresh-token-reuse-detection
     paths:
       - .github/workflows/generate-initial-migration.yml
+      - Directory.Packages.props
+      - src/EnterpriseManager.Application/EnterpriseManager.Application.csproj
+      - src/EnterpriseManager.Infrastructure/EnterpriseManager.Infrastructure.csproj
 
 permissions:
   contents: write
