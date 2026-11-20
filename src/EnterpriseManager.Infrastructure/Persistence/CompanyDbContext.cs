@@ -1,5 +1,6 @@
 using EnterpriseManager.Domain.Companies;
 using EnterpriseManager.Domain.Licensing;
+using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Domain.Memberships;
 using EnterpriseManager.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -16,6 +17,7 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
     public DbSet<CompanyMembership> CompanyMemberships => Set<CompanyMembership>();
     public DbSet<MembershipRequest> MembershipRequests => Set<MembershipRequest>();
     public DbSet<UserLicense> UserLicenses => Set<UserLicense>();
+    public DbSet<RegisteredDevice> Devices => Set<RegisteredDevice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +73,19 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<RegisteredDevice>(entity =>
+        {
+            entity.ToTable("Devices");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.DeviceKey).IsRequired();
+            entity.HasIndex(x => new { x.UserId, x.DeviceKey }).IsUnique();
+            entity.Property(x => x.DisplayName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Platform).HasConversion<string>().HasMaxLength(24);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<RefreshTokenRecord>(entity =>
         {
             entity.ToTable("RefreshTokens");
@@ -79,9 +94,11 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
             entity.HasIndex(x => x.TokenHash).IsUnique();
             entity.Property(x => x.ConcurrencyStamp).IsConcurrencyToken();
             entity.HasIndex(x => new { x.UserId, x.ExpiresAtUtc });
+            entity.HasIndex(x => x.DeviceId);
             entity.Property(x => x.CreatedByIp).HasMaxLength(64);
             entity.Property(x => x.RevokedByIp).HasMaxLength(64);
             entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<RegisteredDevice>().WithMany().HasForeignKey(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
