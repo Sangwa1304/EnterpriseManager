@@ -40,17 +40,11 @@ jobs:
       - name: Run tests
         run: |
           adapter_dir="$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1/build/net8.0"
-          if [ -z "$adapter_dir" ]; then
-            echo "xUnit VSTest adapter DLL was not found in the restored NuGet package."
-            find "$HOME/.nuget/packages/xunit.runner.visualstudio/4.0.1" -maxdepth 4 -type f
-            exit 1
-          fi
-          echo "Using xUnit adapter from: $adapter_dir"
-          dotnet test EnterpriseManager.sln --configuration Release --no-build --no-restore -p:TargetFrameworks=net10.0 \
-            --test-adapter-path "$adapter_dir" \
-            --logger "console;verbosity=normal" \
-            --logger "trx;LogFileName=enterprise-manager-tests.trx"
-          for result in tests/*/TestResults/enterprise-manager-tests.trx; do
+          test_dir="tests/EnterpriseManager.Domain.Tests/bin/Release/net10.0"
+          dotnet vstest "$test_dir/EnterpriseManager.Domain.Tests.dll" --TestAdapterPath:"$adapter_dir" --logger:"console;verbosity=normal" --logger:"trx;LogFileName=domain-tests.trx"
+          test_dir="tests/EnterpriseManager.Application.Tests/bin/Release/net10.0"
+          dotnet vstest "$test_dir/EnterpriseManager.Application.Tests.dll" --TestAdapterPath:"$adapter_dir" --logger:"console;verbosity=normal" --logger:"trx;LogFileName=application-tests.trx"
+          for result in tests/*/TestResults/*.trx; do
             if ! grep -Eq '<Counters[^>]*total="[1-9][0-9]*"' "$result"; then
               echo "No tests were discovered in $result"
               exit 1
