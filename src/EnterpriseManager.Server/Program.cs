@@ -4,6 +4,7 @@ using EnterpriseManager.Application;
 using EnterpriseManager.Infrastructure;
 using EnterpriseManager.Infrastructure.Persistence;
 using EnterpriseManager.Server.Authentication;
+using EnterpriseManager.Server.Memberships;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -87,6 +88,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 app.MapAuthenticationEndpoints();
+app.MapMembershipEndpoints();
 
 app.Run();
 
