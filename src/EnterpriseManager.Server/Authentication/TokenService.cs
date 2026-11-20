@@ -81,8 +81,6 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         var activeSessions = await db.RefreshTokens
             .Where(x => x.UserId == userId && x.DeviceId == deviceId && x.RevokedAtUtc == null)
             .ToListAsync(ct);
-        if (activeSessions.Count == 0) return;
-
         var now = DateTimeOffset.UtcNow;
         foreach (var session in activeSessions)
         {
