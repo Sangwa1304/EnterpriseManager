@@ -5,6 +5,7 @@ using System.Text;
 using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Infrastructure.Persistence;
+using EnterpriseManager.Server.Audit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -12,7 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace EnterpriseManager.Server.Authentication;
 
-public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUser> users, IOptions<TokenOptions> options)
+public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUser> users, IOptions<TokenOptions> options, AuditLogService audit)
 {
     private readonly TokenOptions _options = options.Value;
     private readonly SigningCredentials _credentials = CreateCredentials(options.Value);
@@ -37,7 +38,13 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         var record = await db.RefreshTokens.SingleOrDefaultAsync(x => x.TokenHash == Hash(raw), ct);
         if (record is null) return null;
         var now = DateTimeOffset.UtcNow;
-        if (record.RevokedAtUtc is not null || record.ExpiresAtUtc <= now) return null;
+        if (record.RevokedAtUtc is not null)
+        {
+            if (record.ReplacedByTokenHash is not null)
+                await RevokeDeviceSessionsAfterReuseAsync(record.UserId, record.DeviceId, ip, ct);
+            return null;
+        }
+        if (record.ExpiresAtUtc <= now) return null;
         var user = await users.FindByIdAsync(record.UserId.ToString());
         var device = await db.Devices.SingleOrDefaultAsync(x => x.Id == record.DeviceId, ct);
         if (user is null || !user.IsActive || device is null || device.Status != DeviceStatus.Active ||
@@ -56,9 +63,35 @@ public sealed class TokenService(CompanyDbContext db, UserManager<ApplicationUse
         };
         db.RefreshTokens.Add(replacementSession);
         try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { return null; }
+        catch (DbUpdateConcurrencyException)
+        {
+            db.ChangeTracker.Clear();
+            var latest = await db.RefreshTokens.SingleOrDefaultAsync(x => x.Id == record.Id, ct);
+            if (latest?.RevokedAtUtc is not null && latest.ReplacedByTokenHash is not null)
+                await RevokeDeviceSessionsAfterReuseAsync(latest.UserId, latest.DeviceId, ip, ct);
+            return null;
+        }
 
         return new TokenPair(await CreateAccessTokenAsync(user, device.Id, replacementSession.Id, now), _options.AccessTokenMinutes * 60, replacement);
+    }
+
+    private async Task RevokeDeviceSessionsAfterReuseAsync(
+        Guid userId, Guid deviceId, string? ip, CancellationToken ct)
+    {
+        var activeSessions = await db.RefreshTokens
+            .Where(x => x.UserId == userId && x.DeviceId == deviceId && x.RevokedAtUtc == null)
+            .ToListAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var session in activeSessions)
+        {
+            session.RevokedAtUtc = now;
+            session.RevokedByIp = NormalizeIp(ip) ?? "refresh-token-reuse";
+            session.ConcurrencyStamp = Guid.NewGuid().ToString("N");
+        }
+
+        audit.Record(null, "security.refresh-token-reuse", "device", deviceId.ToString(),
+            ip, $"Detected reuse of a rotated refresh token. Revoked {activeSessions.Count} active session(s) for user {userId} on this device.");
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task<string> CreateAccessTokenAsync(ApplicationUser user, Guid deviceId, Guid sessionId, DateTimeOffset now)

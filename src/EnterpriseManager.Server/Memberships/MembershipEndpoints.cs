@@ -54,6 +54,8 @@ public static class MembershipEndpoints
         JoinRequestInput input,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
+        HttpContext http,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(input.Email) || input.Email.Length > 254 ||
@@ -92,6 +94,8 @@ public static class MembershipEndpoints
 
         var request = new MembershipRequest(user.Id);
         db.MembershipRequests.Add(request);
+        audit.Record(null, "membership.request-submit", "membership-request", request.Id.ToString(),
+            http.Connection.RemoteIpAddress?.ToString(), "A new membership request was submitted.");
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
@@ -201,7 +205,7 @@ public static class MembershipEndpoints
 
         request.Reject(directorId.Value, input.Reason);
         audit.Record(directorId, "membership.reject", "membership-request", requestId.ToString(),
-            details: input.Reason);
+            details: input.Reason is null ? "Membership request rejected without a reason." : "Membership request rejected with a reason supplied.");
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { request.Id, request.Status, request.DecidedAtUtc });
     }

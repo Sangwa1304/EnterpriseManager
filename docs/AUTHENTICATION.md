@@ -21,3 +21,9 @@ Un même compte peut être utilisé sur plusieurs appareils dans les limites dé
 ## Compte Directeur
 
 Le Directeur utilise le même mécanisme d’accès que les autres utilisateurs depuis ses appareils secondaires. Son téléphone ou son second ordinateur ne contourne pas l’indisponibilité du serveur central.
+
+## Rotation et détection de réutilisation
+
+Les refresh tokens sont opaques et stockés sous forme de hash SHA-256. Chaque utilisation valide effectue une rotation : l'ancien enregistrement est révoqué et lié au hash du nouveau token. Si un ancien token déjà remplacé est présenté de nouveau, le serveur considère qu'il peut avoir été compromis, révoque les sessions de cet utilisateur sur l'appareil concerné et écrit un événement d'audit `security.refresh-token-reuse`. Les jetons d'accès associés à ces sessions deviennent alors inutilisables à la requête suivante grâce au contrôle du `session_id`.
+
+Une répétition légitime d'une ancienne requête de refresh après une rotation peut donc obliger l'utilisateur à se reconnecter sur cet appareil. Le client doit traiter un refus de refresh comme une demande de nouvelle authentification, sans réessayer en boucle le même ancien token.
