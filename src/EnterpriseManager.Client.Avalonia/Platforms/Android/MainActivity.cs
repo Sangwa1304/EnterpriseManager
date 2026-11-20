@@ -6,9 +6,11 @@ namespace EnterpriseManager.Client.Avalonia;
 
 [Activity(
     Label = "EnterpriseManager",
-    Theme = "@style/MyTheme.NoActionBar",
+    Theme = "@android:style/Theme.Material.Light.NoActionBar",
     MainLauncher = true,
     ConfigurationChanges = ConfigChanges.Orientation |
                            ConfigChanges.ScreenSize |
                            ConfigChanges.UiMode)]
-public sealed class MainActivity : AvaloniaMainActivity<App>;
+public sealed class MainActivity : AvaloniaMainActivity<App>
+{
+}
