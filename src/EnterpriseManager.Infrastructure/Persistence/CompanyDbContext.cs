@@ -30,7 +30,7 @@ public sealed class CompanyDbContext(DbContextOptions<CompanyDbContext> options)
         {
             entity.Property(x => x.DisplayName).HasMaxLength(160).IsRequired();
             entity.Property(x => x.CreatedAtUtc).IsRequired();
-            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.NormalizedEmail).IsUnique();
         });
         modelBuilder.Entity<RefreshTokenRecord>(entity =>
         {
