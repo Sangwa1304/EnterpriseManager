@@ -54,6 +54,8 @@ public static class MembershipEndpoints
         JoinRequestInput input,
         CompanyDbContext db,
         UserManager<ApplicationUser> users,
+        AuditLogService audit,
+        HttpContext http,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(input.Email) || input.Email.Length > 254 ||
@@ -92,6 +94,8 @@ public static class MembershipEndpoints
 
         var request = new MembershipRequest(user.Id);
         db.MembershipRequests.Add(request);
+        audit.Record(null, "membership.request-submit", "membership-request", request.Id.ToString(),
+            http.Connection.RemoteIpAddress?.ToString(), "A new membership request was submitted.");
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
