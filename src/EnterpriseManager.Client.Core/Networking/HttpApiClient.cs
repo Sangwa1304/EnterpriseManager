@@ -26,7 +26,7 @@ public sealed class HttpApiClient(HttpClient httpClient) : IApiClient
     public async Task<TResponse> PostAsync<TRequest, TResponse>(
         string relativeUri,
         TRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) where TResponse : notnull
     {
         ValidateRelativeUri(relativeUri);
 
