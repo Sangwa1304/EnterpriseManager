@@ -43,16 +43,24 @@ if (connection.Mode == SqliteOpenMode.Memory ||
     return MissingConfiguration;
 }
 
+if (apply && connection.Mode == SqliteOpenMode.ReadOnly)
+{
+    Console.Error.WriteLine("The configured SQLite connection is read-only. No database was changed.");
+    return MissingConfiguration;
+}
+
 var databasePath = Path.GetFullPath(connection.DataSource);
 connection.DataSource = databasePath;
-var normalizedConnectionString = connection.ToString();
+var databaseExists = File.Exists(databasePath);
 
-var options = new DbContextOptionsBuilder<CompanyDbContext>()
-    .UseSqlite(normalizedConnectionString, sqlite =>
-        sqlite.MigrationsAssembly(typeof(CompanyDbContext).Assembly.FullName))
-    .Options;
+var migrationsOptions = new DbContextOptionsBuilder<CompanyDbContext>();
+if (preview && databaseExists)
+    connection.Mode = SqliteOpenMode.ReadOnly;
 
-await using var db = new CompanyDbContext(options);
+migrationsOptions.UseSqlite(connection.ToString(), sqlite =>
+    sqlite.MigrationsAssembly(typeof(CompanyDbContext).Assembly.FullName));
+
+await using var db = new CompanyDbContext(migrationsOptions.Options);
 var migrations = db.Database.GetMigrations().ToArray();
 if (migrations.Length == 0)
 {
@@ -63,7 +71,10 @@ if (migrations.Length == 0)
     return MissingMigrations;
 }
 
-var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+var pending = preview && !databaseExists
+    ? migrations
+    : (await db.Database.GetPendingMigrationsAsync()).ToArray();
+
 if (pending.Length == 0)
 {
     Console.WriteLine("The company database schema is already up to date.");
@@ -79,7 +90,7 @@ if (preview)
 
 Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 string? backupPath = null;
-if (File.Exists(databasePath) && new FileInfo(databasePath).Length > 0)
+if (databaseExists && new FileInfo(databasePath).Length > 0)
 {
     backupPath = databasePath + "." +
         DateTimeOffset.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'") +
