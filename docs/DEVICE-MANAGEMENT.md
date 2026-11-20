@@ -28,6 +28,15 @@ Every refresh token is linked to a registered device. Access tokens carry the se
 - GET /api/v1/devices lists up to 500 devices and their account association.
 - POST /api/v1/devices/{deviceId}/revoke permanently revokes the device and all its active refresh tokens.
 
+## Session controls
+
+- GET `/api/v1/sessions/me` lists the signed-in user's active refresh-token sessions and their device metadata.
+- POST `/api/v1/sessions/current/logout` revokes refresh tokens for the current account on the current device.
+- GET `/api/v1/sessions` (Director only) lists active sessions across the company.
+- POST `/api/v1/sessions/{sessionId}/revoke` (Director only) revokes one refresh-token session.
+
+A session revocation invalidates its refresh token immediately. An already-issued access token can remain usable until its short expiry (at most the configured 60 minutes), unless the entire device is revoked, which is checked on every authenticated request. Immediate per-session access-token invalidation requires binding access tokens to a server-side session identifier and checking that identifier on every request; that is a separate hardening step.
+
 ## Limitations before production
 
 - The client must securely persist its random installation identifier using platform secure storage.
