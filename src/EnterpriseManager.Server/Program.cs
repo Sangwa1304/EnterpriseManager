@@ -8,6 +8,7 @@ using EnterpriseManager.Infrastructure.Persistence;
 using EnterpriseManager.Infrastructure.Identity;
 using EnterpriseManager.Domain.Devices;
 using EnterpriseManager.Server.Authentication;
+using TokenOptions = EnterpriseManager.Server.Authentication.TokenOptions;
 using EnterpriseManager.Server.Memberships;
 using EnterpriseManager.Server.Devices;
 using EnterpriseManager.Server.Audit;
