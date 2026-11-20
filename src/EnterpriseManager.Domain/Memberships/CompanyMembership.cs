@@ -39,8 +39,17 @@ public sealed class CompanyMembership : Entity
 
     public void Reactivate()
     {
+        if (Status == MembershipStatus.Revoked)
+            throw new InvalidOperationException("A revoked membership cannot be reactivated.");
         Status = MembershipStatus.Active;
         SuspendedAtUtc = null;
+        MarkUpdated();
+    }
+
+    public void Revoke()
+    {
+        Status = MembershipStatus.Revoked;
+        SuspendedAtUtc = DateTimeOffset.UtcNow;
         MarkUpdated();
     }
 }
