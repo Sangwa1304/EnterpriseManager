@@ -48,6 +48,34 @@ jobs:
       - name: Build solution
         run: dotnet build EnterpriseManager.sln --configuration Release --no-restore -p:TargetFrameworks=net10.0
 
+      - name: Verify xUnit runner on the CI host
+        run: |
+          mkdir -p /tmp/xunit-smoke
+          cat > /tmp/xunit-smoke/Smoke.csproj <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net10.0</TargetFramework>
+              <IsTestProject>true</IsTestProject>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+              <PackageReference Include="xunit" Version="2.9.3" />
+              <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+                <PrivateAssets>all</PrivateAssets>
+              </PackageReference>
+            </ItemGroup>
+          </Project>
+          EOF
+          cat > /tmp/xunit-smoke/Smoke.cs <<'EOF'
+          using Xunit;
+          public sealed class Smoke
+          {
+              [Fact]
+              public void AdapterWorks() => Assert.True(true);
+          }
+          EOF
+          dotnet test /tmp/xunit-smoke/Smoke.csproj --configuration Release --logger "console;verbosity=normal"
+
       - name: Run domain tests
         run: |
           cat > /tmp/xunit.runsettings <<EOF
