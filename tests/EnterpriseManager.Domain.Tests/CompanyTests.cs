@@ -1,3 +1,4 @@
+using Xunit;
 using EnterpriseManager.Domain.Companies;
 
 namespace EnterpriseManager.Domain.Tests;
