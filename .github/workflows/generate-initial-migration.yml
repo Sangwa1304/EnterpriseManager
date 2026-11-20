@@ -10,6 +10,7 @@ on:
       - Directory.Packages.props
       - src/EnterpriseManager.Application/EnterpriseManager.Application.csproj
       - src/EnterpriseManager.Infrastructure/EnterpriseManager.Infrastructure.csproj
+      - src/EnterpriseManager.Server/Program.cs
 
 permissions:
   contents: write
